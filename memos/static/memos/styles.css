@@ -1,0 +1,293 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f7f2;
+  --panel: #ffffff;
+  --text: #222629;
+  --muted: #6b7280;
+  --line: #d8d8d2;
+  --accent: #23695b;
+  --accent-dark: #184b41;
+  --danger: #9a3412;
+  --warning-bg: #fff3cd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.messages {
+  margin-bottom: 16px;
+}
+
+.message {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.quick-entry {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.quick-entry.compact {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(1.7rem, 2.8vw, 2.5rem);
+  line-height: 1.15;
+}
+
+.memo-form {
+  display: grid;
+  gap: 14px;
+}
+
+.content-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.content-row input,
+.full-field input,
+.field-grid input,
+.field-grid select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+}
+
+.content-row input,
+.full-field input {
+  padding: 0 14px;
+  font-size: 1.04rem;
+}
+
+.field-grid input,
+.field-grid select {
+  padding: 0 10px;
+}
+
+button,
+.form-actions a,
+.memo-actions a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover,
+.form-actions a:hover,
+.memo-actions a:hover {
+  background: var(--accent-dark);
+}
+
+button.quiet {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--danger);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+}
+
+label span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.memo-section {
+  margin-top: 28px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.section-heading span {
+  color: var(--muted);
+}
+
+.memo-list {
+  display: grid;
+  gap: 10px;
+}
+
+.memo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.memo-card.overdue {
+  border-color: #e0a800;
+  background: var(--warning-bg);
+}
+
+.memo-card.done {
+  grid-template-columns: 1fr;
+  opacity: 0.74;
+}
+
+.memo-card p {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.memo-meta,
+.memo-actions,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.memo-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.memo-meta span,
+.memo-meta time {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.empty-state {
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.full-field {
+  display: grid;
+  gap: 8px;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}
+
+.form-actions a {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100% - 20px, 980px);
+    padding-top: 16px;
+  }
+
+  .quick-entry {
+    padding: 18px;
+  }
+
+  .content-row,
+  .memo-card {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .memo-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,99 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry" aria-labelledby="quick-entry-title">
+  <div>
+    <p class="eyebrow">Quick Memo</p>
+    <h1 id="quick-entry-title">思いついたら、すぐ残す。</h1>
+  </div>
+
+  <form method="post" class="memo-form">
+    {% csrf_token %}
+    <div class="content-row">
+      {{ form.content }}
+      <button type="submit">追加</button>
+    </div>
+    {% if form.content.errors %}
+      <p class="field-error">{{ form.content.errors|striptags }}</p>
+    {% endif %}
+
+    <div class="field-grid">
+      <label>
+        <span>{{ form.reminder_at.label }}</span>
+        {{ form.reminder_at }}
+      </label>
+      <label>
+        <span>{{ form.category.label }}</span>
+        {{ form.category }}
+      </label>
+      <label>
+        <span>{{ form.priority.label }}</span>
+        {{ form.priority }}
+      </label>
+      <label>
+        <span>{{ form.status.label }}</span>
+        {{ form.status }}
+      </label>
+    </div>
+  </form>
+</section>
+
+<section class="memo-section" aria-labelledby="active-memos-title">
+  <div class="section-heading">
+    <h2 id="active-memos-title">未完了</h2>
+    <span>{{ active_memos|length }}件</span>
+  </div>
+
+  <div class="memo-list">
+    {% for memo in active_memos %}
+      <article class="memo-card{% if memo.is_overdue %} overdue{% endif %}">
+        <div class="memo-main">
+          <p>{{ memo.content }}</p>
+          <div class="memo-meta">
+            <span>{{ memo.get_category_display }}</span>
+            <span>{{ memo.get_priority_display }}</span>
+            <span>{{ memo.get_status_display }}</span>
+            {% if memo.reminder_at %}
+              <time datetime="{{ memo.reminder_at|date:'c' }}">{{ memo.reminder_at|date:"m/d H:i" }}</time>
+            {% endif %}
+          </div>
+        </div>
+        <div class="memo-actions">
+          <a href="{% url 'memo_edit' memo.pk %}">編集</a>
+          <form method="post" action="{% url 'memo_done' memo.pk %}">
+            {% csrf_token %}
+            <button type="submit">完了</button>
+          </form>
+          <form method="post" action="{% url 'memo_delete' memo.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="quiet">削除</button>
+          </form>
+        </div>
+      </article>
+    {% empty %}
+      <p class="empty-state">まだメモはありません。</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% if done_memos %}
+  <section class="memo-section" aria-labelledby="done-memos-title">
+    <div class="section-heading">
+      <h2 id="done-memos-title">最近の完了</h2>
+    </div>
+    <div class="memo-list done-list">
+      {% for memo in done_memos %}
+        <article class="memo-card done">
+          <p>{{ memo.content }}</p>
+          <div class="memo-meta">
+            <span>{{ memo.get_category_display }}</span>
+            {% if memo.completed_at %}
+              <time datetime="{{ memo.completed_at|date:'c' }}">{{ memo.completed_at|date:"m/d H:i" }}</time>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

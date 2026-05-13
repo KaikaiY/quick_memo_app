@@ -1,0 +1,42 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="edit-title">
+  <div>
+    <p class="eyebrow">Edit Memo</p>
+    <h1 id="edit-title">メモを整える</h1>
+  </div>
+
+  <form method="post" class="memo-form">
+    {% csrf_token %}
+    <label class="full-field">
+      <span>{{ form.content.label }}</span>
+      {{ form.content }}
+    </label>
+
+    <div class="field-grid">
+      <label>
+        <span>{{ form.reminder_at.label }}</span>
+        {{ form.reminder_at }}
+      </label>
+      <label>
+        <span>{{ form.category.label }}</span>
+        {{ form.category }}
+      </label>
+      <label>
+        <span>{{ form.priority.label }}</span>
+        {{ form.priority }}
+      </label>
+      <label>
+        <span>{{ form.status.label }}</span>
+        {{ form.status }}
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'memo_list' %}">戻る</a>
+      <button type="submit">保存</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
