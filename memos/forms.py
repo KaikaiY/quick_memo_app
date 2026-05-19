@@ -3,6 +3,20 @@ from django import forms
 from .models import Memo
 
 
+class QuickMemoForm(forms.Form):
+    text = forms.CharField(
+        label="メモ",
+        max_length=255,
+        widget=forms.TextInput(
+            attrs={
+                "autofocus": True,
+                "placeholder": "例: 明日の朝にゴミ出し",
+                "aria-label": "メモ内容",
+            }
+        ),
+    )
+
+
 class MemoForm(forms.ModelForm):
     reminder_at = forms.DateTimeField(
         required=False,

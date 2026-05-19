@@ -4,37 +4,19 @@
 <section class="quick-entry" aria-labelledby="quick-entry-title">
   <div>
     <p class="eyebrow">Quick Memo</p>
-    <h1 id="quick-entry-title">思いついたら、すぐ残す。</h1>
+    <h1 id="quick-entry-title">一文で、リマインダーまで。</h1>
   </div>
 
   <form method="post" class="memo-form">
     {% csrf_token %}
     <div class="content-row">
-      {{ form.content }}
+      {{ quick_form.text }}
       <button type="submit">追加</button>
     </div>
-    {% if form.content.errors %}
-      <p class="field-error">{{ form.content.errors|striptags }}</p>
+    {% if quick_form.text.errors %}
+      <p class="field-error">{{ quick_form.text.errors|striptags }}</p>
     {% endif %}
-
-    <div class="field-grid">
-      <label>
-        <span>{{ form.reminder_at.label }}</span>
-        {{ form.reminder_at }}
-      </label>
-      <label>
-        <span>{{ form.category.label }}</span>
-        {{ form.category }}
-      </label>
-      <label>
-        <span>{{ form.priority.label }}</span>
-        {{ form.priority }}
-      </label>
-      <label>
-        <span>{{ form.status.label }}</span>
-        {{ form.status }}
-      </label>
-    </div>
+    <p class="input-hint">「今日の夜に洗濯」「明後日10時に病院」「5/20 14:00 歯医者」のように入力できます。</p>
   </form>
 </section>
 
@@ -59,15 +41,22 @@
           </div>
         </div>
         <div class="memo-actions">
-          <a href="{% url 'memo_edit' memo.pk %}">編集</a>
           <form method="post" action="{% url 'memo_done' memo.pk %}">
             {% csrf_token %}
             <button type="submit">完了</button>
           </form>
-          <form method="post" action="{% url 'memo_delete' memo.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="quiet">削除</button>
-          </form>
+          <div class="memo-menu">
+            <button type="button" class="memo-menu-button" aria-expanded="false" aria-label="その他の操作">
+              ...
+            </button>
+            <div class="memo-menu-list" hidden>
+              <a href="{% url 'memo_edit' memo.pk %}">編集</a>
+              <form method="post" action="{% url 'memo_delete' memo.pk %}">
+                {% csrf_token %}
+                <button type="submit">削除</button>
+              </form>
+            </div>
+          </div>
         </div>
       </article>
     {% empty %}

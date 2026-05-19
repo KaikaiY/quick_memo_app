@@ -116,8 +116,7 @@ h1 {
 }
 
 button,
-.form-actions a,
-.memo-actions a {
+.form-actions a {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
@@ -132,8 +131,7 @@ button,
 }
 
 button:hover,
-.form-actions a:hover,
-.memo-actions a:hover {
+.form-actions a:hover {
   background: var(--accent-dark);
 }
 
@@ -163,6 +161,12 @@ label span {
 .field-error {
   margin: 0;
   color: var(--danger);
+}
+
+.input-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .memo-section {
@@ -224,6 +228,78 @@ label span {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.memo-actions {
+  position: relative;
+  justify-content: flex-end;
+}
+
+.memo-menu {
+  position: relative;
+}
+
+.memo-menu-button {
+  width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.memo-menu-button[aria-expanded="true"],
+.memo-menu-button:hover {
+  border-color: var(--accent);
+}
+
+.memo-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  min-width: 144px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(34, 38, 41, 0.12);
+}
+
+.memo-menu-list a,
+.memo-menu-list button {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.memo-menu-list form {
+  width: 100%;
+  margin: 0;
+}
+
+.memo-menu-list button {
+  color: var(--danger);
+}
+
+.memo-menu-list a:hover,
+.memo-menu-list button:hover {
+  background: var(--bg);
 }
 
 .memo-meta {
