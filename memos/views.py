@@ -3,8 +3,9 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import MemoForm
+from .forms import MemoForm, QuickMemoForm
 from .models import Memo
+from .parser import parse_quick_memo
 
 
 def get_default_user():
@@ -19,22 +20,31 @@ def memo_list(request):
     user = get_default_user()
 
     if request.method == "POST":
-        form = MemoForm(request.POST)
-        if form.is_valid():
-            memo = form.save(commit=False)
-            memo.user = user
-            memo.save()
-            messages.success(request, "メモを追加しました。")
+        quick_form = QuickMemoForm(request.POST)
+        if quick_form.is_valid():
+            parsed_memo = parse_quick_memo(quick_form.cleaned_data["text"])
+            Memo.objects.create(
+                user=user,
+                content=parsed_memo.content,
+                reminder_at=parsed_memo.reminder_at,
+                category="other",
+                priority="unset",
+                status="today" if parsed_memo.reminder_at else "inbox",
+            )
+            if parsed_memo.reminder_at:
+                messages.success(request, "リマインダー付きメモを追加しました。")
+            else:
+                messages.success(request, "メモを追加しました。")
             return redirect("memo_list")
     else:
-        form = MemoForm(initial={"status": "inbox", "priority": "unset", "category": "other"})
+        quick_form = QuickMemoForm()
 
     memos = Memo.objects.filter(user=user).exclude(status="trash")
     active_memos = memos.exclude(status="done")
     done_memos = memos.filter(status="done")[:10]
 
     context = {
-        "form": form,
+        "quick_form": quick_form,
         "active_memos": active_memos,
         "done_memos": done_memos,
         "status_choices": Memo.STATUS_CHOICES,
