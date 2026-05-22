@@ -11,6 +11,10 @@ from .parser import parse_quick_memo
 
 
 class MemoViewsTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.client.force_login(self.user)
+
     def test_create_memo_from_top_page(self):
         response = self.client.post(
             reverse("memo_list"),
@@ -20,7 +24,7 @@ class MemoViewsTest(TestCase):
         self.assertRedirects(response, reverse("memo_list"))
         memo = Memo.objects.get()
         self.assertEqual(memo.content, "牛乳を買う")
-        self.assertEqual(memo.user.username, "default")
+        self.assertEqual(memo.user, self.user)
         self.assertEqual(memo.status, "today")
         self.assertIsNotNone(memo.reminder_at)
 
@@ -54,9 +58,8 @@ class MemoViewsTest(TestCase):
         self.assertEqual(reminder_at.minute, 0)
 
     def test_memo_list_shows_set_priority_but_not_unset_priority(self):
-        user = User.objects.create_user(username="default")
-        Memo.objects.create(user=user, content="優先メモ", status="today", priority="high")
-        Memo.objects.create(user=user, content="普通メモ", status="today", priority="unset")
+        Memo.objects.create(user=self.user, content="優先メモ", status="today", priority="high")
+        Memo.objects.create(user=self.user, content="普通メモ", status="today", priority="unset")
 
         response = self.client.get(reverse("memo_list"))
 
@@ -64,8 +67,7 @@ class MemoViewsTest(TestCase):
         self.assertNotContains(response, "未設定")
 
     def test_done_action_marks_memo_completed(self):
-        user = User.objects.create_user(username="default")
-        memo = Memo.objects.create(user=user, content="メールする", status="today")
+        memo = Memo.objects.create(user=self.user, content="メールする", status="today")
 
         response = self.client.post(reverse("memo_done", args=[memo.pk]))
 
@@ -75,10 +77,9 @@ class MemoViewsTest(TestCase):
         self.assertIsNotNone(memo.completed_at)
 
     def test_nightly_review_shows_only_inbox_memos(self):
-        user = User.objects.create_user(username="default")
-        Memo.objects.create(user=user, content="整理するメモ", status="inbox")
-        Memo.objects.create(user=user, content="今日やるメモ", status="today")
-        Memo.objects.create(user=user, content="完了メモ", status="done")
+        Memo.objects.create(user=self.user, content="整理するメモ", status="inbox")
+        Memo.objects.create(user=self.user, content="今日やるメモ", status="today")
+        Memo.objects.create(user=self.user, content="完了メモ", status="done")
 
         response = self.client.get(reverse("nightly_review"))
 
@@ -87,16 +88,14 @@ class MemoViewsTest(TestCase):
         self.assertNotContains(response, "完了メモ")
 
     def test_nightly_review_shows_set_priority(self):
-        user = User.objects.create_user(username="default")
-        Memo.objects.create(user=user, content="整理するメモ", status="inbox", priority="high")
+        Memo.objects.create(user=self.user, content="整理するメモ", status="inbox", priority="high")
 
         response = self.client.get(reverse("nightly_review"))
 
         self.assertContains(response, "高")
 
     def test_done_action_can_redirect_back_to_nightly_review(self):
-        user = User.objects.create_user(username="default")
-        memo = Memo.objects.create(user=user, content="整理するメモ", status="inbox")
+        memo = Memo.objects.create(user=self.user, content="整理するメモ", status="inbox")
 
         response = self.client.post(reverse("memo_done", args=[memo.pk]), {"next": reverse("nightly_review")})
 
@@ -105,8 +104,7 @@ class MemoViewsTest(TestCase):
         self.assertEqual(memo.status, "done")
 
     def test_edit_page_can_reparse_memo_text(self):
-        user = User.objects.create_user(username="default")
-        memo = Memo.objects.create(user=user, content="失敗した入力", status="inbox", priority="unset")
+        memo = Memo.objects.create(user=self.user, content="失敗した入力", status="inbox", priority="unset")
 
         response = self.client.post(
             reverse("memo_edit", args=[memo.pk]),
@@ -126,8 +124,7 @@ class MemoViewsTest(TestCase):
         self.assertEqual(reminder_at.minute, 0)
 
     def test_reparse_keeps_user_on_edit_page_when_text_is_blank(self):
-        user = User.objects.create_user(username="default")
-        memo = Memo.objects.create(user=user, content="失敗した入力", status="inbox")
+        memo = Memo.objects.create(user=self.user, content="失敗した入力", status="inbox")
 
         response = self.client.post(
             reverse("memo_edit", args=[memo.pk]),
@@ -140,6 +137,50 @@ class MemoViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         memo.refresh_from_db()
         self.assertEqual(memo.content, "失敗した入力")
+
+    def test_memo_list_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("memo_list"))
+
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('memo_list')}")
+
+    def test_memo_list_only_shows_current_users_memos(self):
+        other_user = User.objects.create_user(username="hanako", password="password123")
+        Memo.objects.create(user=self.user, content="自分のメモ", status="today")
+        Memo.objects.create(user=other_user, content="他人のメモ", status="today")
+
+        response = self.client.get(reverse("memo_list"))
+
+        self.assertContains(response, "自分のメモ")
+        self.assertNotContains(response, "他人のメモ")
+
+    def test_signup_creates_and_logs_in_user(self):
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "newuser",
+                "password1": "StrongPass123",
+                "password2": "StrongPass123",
+            },
+        )
+
+        self.assertRedirects(response, reverse("memo_list"))
+        self.assertTrue(User.objects.filter(username="newuser").exists())
+
+    def test_logout_confirm_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("logout_confirm"))
+
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('logout_confirm')}")
+
+    def test_logout_confirm_page_is_visible_to_logged_in_user(self):
+        response = self.client.get(reverse("logout_confirm"))
+
+        self.assertContains(response, "ログアウトしますか？")
 
 
 class MemoModelTest(TestCase):

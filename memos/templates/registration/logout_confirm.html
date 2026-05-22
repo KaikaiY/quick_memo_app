@@ -1,0 +1,19 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="logout-title">
+  <div>
+    <p class="eyebrow">Logout</p>
+    <h1 id="logout-title">ログアウトしますか？</h1>
+  </div>
+
+  <form method="post" action="{% url 'logout' %}" class="memo-form auth-form">
+    {% csrf_token %}
+    <p class="input-hint">ログアウトすると、次回利用時にもう一度ログインが必要です。</p>
+    <div class="form-actions">
+      <a href="{% url 'memo_list' %}">戻る</a>
+      <button type="submit">ログアウト</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
