@@ -7,8 +7,30 @@
     <h1 id="edit-title">メモを整える</h1>
   </div>
 
+  <form method="post" class="memo-form reparse-form">
+    {% csrf_token %}
+    {% if next_url %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
+    <input type="hidden" name="action" value="reparse">
+    <label class="full-field">
+      <span>{{ reparse_form.reparse_text.label }}</span>
+      {{ reparse_form.reparse_text }}
+    </label>
+    {% if reparse_form.reparse_text.errors %}
+      <p class="field-error">{{ reparse_form.reparse_text.errors|striptags }}</p>
+    {% endif %}
+    <p class="input-hint">例: !高 明日 病院。本文・優先度・リマインダーをまとめて上書きします。</p>
+    <div class="form-actions">
+      <button type="submit">再解析</button>
+    </div>
+  </form>
+
   <form method="post" class="memo-form">
     {% csrf_token %}
+    {% if next_url %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
     <label class="full-field">
       <span>{{ form.content.label }}</span>
       {{ form.content }}
@@ -18,10 +40,6 @@
       <label>
         <span>{{ form.reminder_at.label }}</span>
         {{ form.reminder_at }}
-      </label>
-      <label>
-        <span>{{ form.category.label }}</span>
-        {{ form.category }}
       </label>
       <label>
         <span>{{ form.priority.label }}</span>
@@ -34,7 +52,7 @@
     </div>
 
     <div class="form-actions">
-      <a href="{% url 'memo_list' %}">戻る</a>
+      <a href="{{ next_url|default:'/' }}">戻る</a>
       <button type="submit">保存</button>
     </div>
   </form>
