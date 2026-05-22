@@ -1,4 +1,7 @@
 from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -9,14 +12,6 @@ from .models import Memo
 from .parser import parse_quick_memo
 
 
-def get_default_user():
-    user, _ = User.objects.get_or_create(
-        username="default",
-        defaults={"email": "default@example.com"},
-    )
-    return user
-
-
 def get_safe_next_url(request, method="POST"):
     next_url = request.POST.get("next") if method == "POST" else request.GET.get("next")
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
@@ -24,8 +19,28 @@ def get_safe_next_url(request, method="POST"):
     return None
 
 
+def signup(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "アカウントを作成しました。")
+            return redirect("memo_list")
+    else:
+        form = UserCreationForm()
+
+    return render(request, "registration/signup.html", {"form": form})
+
+
+@login_required
+def logout_confirm(request):
+    return render(request, "registration/logout_confirm.html")
+
+
+@login_required
 def memo_list(request):
-    user = get_default_user()
+    user = request.user
 
     if request.method == "POST":
         quick_form = QuickMemoForm(request.POST)
@@ -60,8 +75,9 @@ def memo_list(request):
     return render(request, "memos/memo_list.html", context)
 
 
+@login_required
 def nightly_review(request):
-    user = get_default_user()
+    user = request.user
     review_memos = Memo.objects.filter(user=user, status="inbox").order_by("-created_at")
 
     context = {
@@ -70,8 +86,9 @@ def nightly_review(request):
     return render(request, "memos/nightly_review.html", context)
 
 
+@login_required
 def memo_edit(request, pk):
-    user = get_default_user()
+    user = request.user
     memo = get_object_or_404(Memo, pk=pk, user=user)
     next_url = get_safe_next_url(request) if request.method == "POST" else get_safe_next_url(request, "GET")
 
@@ -107,8 +124,9 @@ def memo_edit(request, pk):
 
 
 @require_POST
+@login_required
 def memo_done(request, pk):
-    user = get_default_user()
+    user = request.user
     memo = get_object_or_404(Memo, pk=pk, user=user)
     memo.mark_done()
     messages.success(request, "完了にしました。")
@@ -116,8 +134,9 @@ def memo_done(request, pk):
 
 
 @require_POST
+@login_required
 def memo_delete(request, pk):
-    user = get_default_user()
+    user = request.user
     memo = get_object_or_404(Memo, pk=pk, user=user)
     memo.status = "trash"
     memo.save(update_fields=["status", "updated_at"])

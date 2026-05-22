@@ -39,10 +39,16 @@ select {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  align-items: center;
   margin-bottom: 16px;
 }
 
-.app-nav-link {
+.app-nav form {
+  margin: 0;
+}
+
+.app-nav-link,
+.app-nav-button {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
@@ -54,7 +60,17 @@ select {
   text-decoration: none;
 }
 
-.app-nav-link:hover {
+.app-nav-button {
+  background: #fff;
+}
+
+.app-nav-user {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.app-nav-link:hover,
+.app-nav-button:hover {
   border-color: var(--accent);
 }
 
@@ -130,6 +146,7 @@ h1 {
 
 .content-row input,
 .full-field input,
+.auth-form input,
 .field-grid input,
 .field-grid select {
   width: 100%;
@@ -141,7 +158,8 @@ h1 {
 }
 
 .content-row input,
-.full-field input {
+.full-field input,
+.auth-form input {
   padding: 0 14px;
   font-size: 1.04rem;
 }

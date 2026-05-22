@@ -1,0 +1,27 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="login-title">
+  <div>
+    <p class="eyebrow">Login</p>
+    <h1 id="login-title">ログイン</h1>
+  </div>
+
+  <form method="post" class="memo-form auth-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <label>
+      <span>ユーザー名</span>
+      {{ form.username }}
+    </label>
+    <label>
+      <span>パスワード</span>
+      {{ form.password }}
+    </label>
+    <div class="form-actions">
+      <a href="{% url 'signup' %}">新規登録</a>
+      <button type="submit">ログイン</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
