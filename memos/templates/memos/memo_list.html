@@ -16,7 +16,14 @@
     {% if quick_form.text.errors %}
       <p class="field-error">{{ quick_form.text.errors|striptags }}</p>
     {% endif %}
-    <p class="input-hint">「今日の夜に洗濯」「明後日10時に病院」「5/20 14:00 歯医者」のように入力できます。</p>
+    <details class="input-help">
+      <summary aria-label="入力のヒント">?</summary>
+      <div class="input-help-panel">
+        <p>例: 今日 書類提出 / 明日 病院 / 5/20 14:00 歯医者</p>
+        <p>時間なし: 今日は23:59、それ以外は09:00になります。</p>
+        <p>優先度: !高 / !中 / !低 を先頭に付けます。全角！も使えます。</p>
+      </div>
+    </details>
   </form>
 </section>
 
@@ -32,8 +39,9 @@
         <div class="memo-main">
           <p>{{ memo.content }}</p>
           <div class="memo-meta">
-            <span>{{ memo.get_category_display }}</span>
-            <span>{{ memo.get_priority_display }}</span>
+            {% if memo.priority != "unset" %}
+              <span class="priority-badge priority-{{ memo.priority }}">{{ memo.get_priority_display }}</span>
+            {% endif %}
             <span>{{ memo.get_status_display }}</span>
             {% if memo.reminder_at %}
               <time datetime="{{ memo.reminder_at|date:'c' }}">{{ memo.reminder_at|date:"m/d H:i" }}</time>
@@ -75,7 +83,6 @@
         <article class="memo-card done">
           <p>{{ memo.content }}</p>
           <div class="memo-meta">
-            <span>{{ memo.get_category_display }}</span>
             {% if memo.completed_at %}
               <time datetime="{{ memo.completed_at|date:'c' }}">{{ memo.completed_at|date:"m/d H:i" }}</time>
             {% endif %}

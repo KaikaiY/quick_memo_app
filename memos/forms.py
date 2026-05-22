@@ -17,7 +17,24 @@ class QuickMemoForm(forms.Form):
     )
 
 
+class ReparseMemoForm(forms.Form):
+    reparse_text = forms.CharField(
+        label="一文で再解析",
+        max_length=255,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "例: !高 明日 病院",
+                "aria-label": "一文で再解析",
+            }
+        ),
+    )
+
+
 class MemoForm(forms.ModelForm):
+    status = forms.ChoiceField(
+        choices=[choice for choice in Memo.STATUS_CHOICES if choice[0] not in {"done", "trash"}],
+        label="状態",
+    )
     reminder_at = forms.DateTimeField(
         required=False,
         input_formats=["%Y-%m-%dT%H:%M"],
@@ -27,7 +44,7 @@ class MemoForm(forms.ModelForm):
 
     class Meta:
         model = Memo
-        fields = ["content", "category", "priority", "status", "reminder_at"]
+        fields = ["content", "priority", "status", "reminder_at"]
         widgets = {
             "content": forms.TextInput(
                 attrs={
@@ -39,7 +56,5 @@ class MemoForm(forms.ModelForm):
         }
         labels = {
             "content": "メモ",
-            "category": "カテゴリ",
             "priority": "優先度",
-            "status": "状態",
         }

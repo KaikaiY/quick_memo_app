@@ -9,6 +9,10 @@
 </head>
 <body>
   <main class="app-shell">
+    <nav class="app-nav" aria-label="メイン">
+      <a class="app-nav-link{% if request.resolver_match.url_name == 'memo_list' %} active{% endif %}" href="{% url 'memo_list' %}">メモ</a>
+      <a class="app-nav-link{% if request.resolver_match.url_name == 'nightly_review' %} active{% endif %}" href="{% url 'nightly_review' %}">夜の整理</a>
+    </nav>
     {% if messages %}
       <div class="messages">
         {% for message in messages %}

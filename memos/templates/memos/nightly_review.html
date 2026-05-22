@@ -1,0 +1,56 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="review-title">
+  <div>
+    <p class="eyebrow">Nightly Review</p>
+    <h1 id="review-title">夜に、未整理を片づける。</h1>
+  </div>
+  <p class="input-hint">リマインダーにできなかったメモや、あとで考えるために残したメモだけを集めています。</p>
+</section>
+
+<section class="memo-section" aria-labelledby="review-memos-title">
+  <div class="section-heading">
+    <h2 id="review-memos-title">未整理メモ</h2>
+    <span>{{ review_memos|length }}件</span>
+  </div>
+
+  <div class="memo-list">
+    {% for memo in review_memos %}
+      <article class="memo-card review-card">
+        <div class="memo-main">
+          <p>{{ memo.content }}</p>
+          <div class="memo-meta">
+            {% if memo.priority != "unset" %}
+              <span class="priority-badge priority-{{ memo.priority }}">{{ memo.get_priority_display }}</span>
+            {% endif %}
+            <time datetime="{{ memo.created_at|date:'c' }}">作成 {{ memo.created_at|date:"m/d H:i" }}</time>
+          </div>
+        </div>
+        <div class="memo-actions">
+          <form method="post" action="{% url 'memo_done' memo.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'nightly_review' %}">
+            <button type="submit">完了</button>
+          </form>
+          <div class="memo-menu">
+            <button type="button" class="memo-menu-button" aria-expanded="false" aria-label="その他の操作">
+              ...
+            </button>
+            <div class="memo-menu-list" hidden>
+              <a href="{% url 'memo_edit' memo.pk %}?next={% url 'nightly_review' %}">編集</a>
+              <form method="post" action="{% url 'memo_delete' memo.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'nightly_review' %}">
+                <button type="submit">削除</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <p class="empty-state">今夜整理するメモはありません。</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

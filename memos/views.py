@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import MemoForm, QuickMemoForm
+from .forms import MemoForm, QuickMemoForm, ReparseMemoForm
 from .models import Memo
 from .parser import parse_quick_memo
 
@@ -14,6 +15,13 @@ def get_default_user():
         defaults={"email": "default@example.com"},
     )
     return user
+
+
+def get_safe_next_url(request, method="POST"):
+    next_url = request.POST.get("next") if method == "POST" else request.GET.get("next")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return next_url
+    return None
 
 
 def memo_list(request):
@@ -28,7 +36,7 @@ def memo_list(request):
                 content=parsed_memo.content,
                 reminder_at=parsed_memo.reminder_at,
                 category="other",
-                priority="unset",
+                priority=parsed_memo.priority,
                 status="today" if parsed_memo.reminder_at else "inbox",
             )
             if parsed_memo.reminder_at:
@@ -52,20 +60,50 @@ def memo_list(request):
     return render(request, "memos/memo_list.html", context)
 
 
+def nightly_review(request):
+    user = get_default_user()
+    review_memos = Memo.objects.filter(user=user, status="inbox").order_by("-created_at")
+
+    context = {
+        "review_memos": review_memos,
+    }
+    return render(request, "memos/nightly_review.html", context)
+
+
 def memo_edit(request, pk):
     user = get_default_user()
     memo = get_object_or_404(Memo, pk=pk, user=user)
+    next_url = get_safe_next_url(request) if request.method == "POST" else get_safe_next_url(request, "GET")
 
     if request.method == "POST":
-        form = MemoForm(request.POST, instance=memo)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "メモを更新しました。")
-            return redirect("memo_list")
+        if request.POST.get("action") == "reparse":
+            reparse_form = ReparseMemoForm(request.POST)
+            form = MemoForm(instance=memo)
+            if reparse_form.is_valid():
+                parsed_memo = parse_quick_memo(reparse_form.cleaned_data["reparse_text"])
+                memo.content = parsed_memo.content
+                memo.reminder_at = parsed_memo.reminder_at
+                memo.priority = parsed_memo.priority
+                memo.status = "today" if parsed_memo.reminder_at else "inbox"
+                memo.save(update_fields=["content", "reminder_at", "priority", "status", "updated_at"])
+                messages.success(request, "一文から再解析しました。")
+                return redirect(next_url or "memo_list")
+        else:
+            form = MemoForm(request.POST, instance=memo)
+            reparse_form = ReparseMemoForm()
+            if form.is_valid():
+                form.save()
+                messages.success(request, "メモを更新しました。")
+                return redirect(next_url or "memo_list")
     else:
         form = MemoForm(instance=memo)
+        reparse_form = ReparseMemoForm()
 
-    return render(request, "memos/memo_edit.html", {"form": form, "memo": memo})
+    return render(
+        request,
+        "memos/memo_edit.html",
+        {"form": form, "reparse_form": reparse_form, "memo": memo, "next_url": next_url},
+    )
 
 
 @require_POST
@@ -74,7 +112,7 @@ def memo_done(request, pk):
     memo = get_object_or_404(Memo, pk=pk, user=user)
     memo.mark_done()
     messages.success(request, "完了にしました。")
-    return redirect("memo_list")
+    return redirect(get_safe_next_url(request) or "memo_list")
 
 
 @require_POST
@@ -84,4 +122,4 @@ def memo_delete(request, pk):
     memo.status = "trash"
     memo.save(update_fields=["status", "updated_at"])
     messages.success(request, "メモを削除しました。")
-    return redirect("memo_list")
+    return redirect(get_safe_next_url(request) or "memo_list")
