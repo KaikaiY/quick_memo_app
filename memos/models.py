@@ -37,6 +37,9 @@ class Memo(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="inbox")
     reminder_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    google_event_id = models.CharField(max_length=255, blank=True)
+    google_event_link = models.URLField(blank=True)
+    google_synced_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -58,3 +61,18 @@ class Memo(models.Model):
         self.status = "done"
         self.completed_at = timezone.now()
         self.save(update_fields=["status", "completed_at", "updated_at"])
+
+    @property
+    def is_synced_to_google(self):
+        return bool(self.google_event_id)
+
+
+class GoogleCalendarCredential(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    credentials_json = models.TextField()
+    calendar_id = models.CharField(max_length=255, default="primary")
+    connected_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Google Calendar: {self.user.username}"

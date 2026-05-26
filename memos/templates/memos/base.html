@@ -14,6 +14,7 @@
         <span class="app-nav-user">{{ user.username }}</span>
         <a class="app-nav-link{% if request.resolver_match.url_name == 'memo_list' %} active{% endif %}" href="{% url 'memo_list' %}">メモ</a>
         <a class="app-nav-link{% if request.resolver_match.url_name == 'nightly_review' %} active{% endif %}" href="{% url 'nightly_review' %}">夜の整理</a>
+        <a class="app-nav-link{% if request.resolver_match.url_name == 'google_calendar_settings' %} active{% endif %}" href="{% url 'google_calendar_settings' %}">Google連携</a>
         <a class="app-nav-link{% if request.resolver_match.url_name == 'logout_confirm' %} active{% endif %}" href="{% url 'logout_confirm' %}">ログアウト</a>
       {% else %}
         <a class="app-nav-link{% if request.resolver_match.url_name == 'login' %} active{% endif %}" href="{% url 'login' %}">ログイン</a>

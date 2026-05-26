@@ -138,6 +138,24 @@ h1 {
   background: var(--bg);
 }
 
+.connection-status {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.connection-status.connected {
+  border-color: #9bc4b8;
+  background: #eef8f5;
+}
+
+.connection-status p {
+  margin: 0;
+}
+
 .content-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -193,6 +211,34 @@ button.quiet {
   border-color: var(--line);
   background: #fff;
   color: var(--danger);
+}
+
+button.secondary {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--accent);
+}
+
+button.secondary:hover {
+  border-color: var(--accent);
+  background: #fff;
+}
+
+.memo-action-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.memo-action-link:hover {
+  border-color: var(--accent);
 }
 
 .field-grid {
