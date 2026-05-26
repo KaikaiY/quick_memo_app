@@ -49,6 +49,14 @@
           </div>
         </div>
         <div class="memo-actions">
+          {% if memo.google_event_link %}
+            <a class="memo-action-link" href="{{ memo.google_event_link }}" target="_blank" rel="noopener">Google予定</a>
+          {% elif memo.reminder_at %}
+            <form method="post" action="{% url 'memo_google_calendar_sync' memo.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="secondary">Googleへ追加</button>
+            </form>
+          {% endif %}
           <form method="post" action="{% url 'memo_done' memo.pk %}">
             {% csrf_token %}
             <button type="submit">完了</button>

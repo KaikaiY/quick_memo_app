@@ -1,0 +1,35 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="google-calendar-title">
+  <div>
+    <p class="eyebrow">Google Calendar</p>
+    <h1 id="google-calendar-title">Googleカレンダー連携</h1>
+  </div>
+
+  {% if credential %}
+    <div class="connection-status connected">
+      <p>接続済みです。</p>
+      <p class="input-hint">カレンダー: {{ credential.calendar_id }} / 接続 {{ credential.connected_at|date:"m/d H:i" }}</p>
+    </div>
+    <form method="post" action="{% url 'google_calendar_disconnect' %}" class="memo-form">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button type="submit" class="quiet">連携を解除</button>
+      </div>
+    </form>
+  {% else %}
+    <div class="connection-status">
+      <p>まだ接続されていません。</p>
+      <p class="input-hint">リマインダー付きメモをGoogleカレンダーへ送るための準備です。</p>
+    </div>
+    {% if is_google_oauth_configured %}
+      <div class="form-actions">
+        <a href="{% url 'google_calendar_connect' %}">Googleと接続</a>
+      </div>
+    {% else %}
+      <p class="field-error">Google OAuthの環境変数が未設定です。</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

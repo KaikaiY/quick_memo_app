@@ -1,12 +1,14 @@
 from datetime import datetime
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .forms import MemoForm
-from .models import Memo
+from .models import GoogleCalendarCredential, Memo
 from .parser import parse_quick_memo
 
 
@@ -182,6 +184,110 @@ class MemoViewsTest(TestCase):
 
         self.assertContains(response, "ログアウトしますか？")
 
+    def test_google_calendar_settings_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("google_calendar_settings"))
+
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('google_calendar_settings')}")
+
+    def test_google_calendar_settings_shows_disconnected_state(self):
+        response = self.client.get(reverse("google_calendar_settings"))
+
+        self.assertContains(response, "まだ接続されていません。")
+
+    def test_google_calendar_connect_without_settings_redirects_back(self):
+        response = self.client.get(reverse("google_calendar_connect"))
+
+        self.assertRedirects(response, reverse("google_calendar_settings"))
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="client-id", GOOGLE_OAUTH_CLIENT_SECRET="client-secret")
+    @patch("memos.views.build_authorization_url", return_value=("https://accounts.google.com/o/oauth2/auth", "state-123"))
+    def test_google_calendar_connect_stores_state_and_redirects(self, build_authorization_url):
+        response = self.client.get(reverse("google_calendar_connect"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://accounts.google.com/o/oauth2/auth")
+        self.assertEqual(self.client.session["google_oauth_state"], "state-123")
+        build_authorization_url.assert_called_once()
+
+    @patch("memos.views.fetch_credentials_json", return_value='{"token": "token"}')
+    def test_google_calendar_callback_saves_credentials(self, fetch_credentials_json):
+        session = self.client.session
+        session["google_oauth_state"] = "state-123"
+        session.save()
+
+        response = self.client.get(reverse("google_calendar_callback"), {"state": "state-123", "code": "code"})
+
+        self.assertRedirects(response, reverse("google_calendar_settings"))
+        credential = GoogleCalendarCredential.objects.get(user=self.user)
+        self.assertEqual(credential.credentials_json, '{"token": "token"}')
+        fetch_credentials_json.assert_called_once()
+
+    def test_google_calendar_disconnect_deletes_credentials(self):
+        GoogleCalendarCredential.objects.create(user=self.user, credentials_json='{"token": "token"}')
+
+        response = self.client.post(reverse("google_calendar_disconnect"))
+
+        self.assertRedirects(response, reverse("google_calendar_settings"))
+        self.assertFalse(GoogleCalendarCredential.objects.filter(user=self.user).exists())
+
+    @patch(
+        "memos.views.create_google_calendar_event",
+        return_value={"id": "event-123", "htmlLink": "https://calendar.google.com/event?eid=123"},
+    )
+    def test_google_calendar_sync_creates_event_for_reminder_memo(self, create_google_calendar_event):
+        credential = GoogleCalendarCredential.objects.create(user=self.user, credentials_json='{"token": "token"}')
+        reminder_at = timezone.now() + timezone.timedelta(hours=2)
+        memo = Memo.objects.create(user=self.user, content="病院", status="today", reminder_at=reminder_at)
+
+        response = self.client.post(reverse("memo_google_calendar_sync", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("memo_list"))
+        memo.refresh_from_db()
+        self.assertEqual(memo.google_event_id, "event-123")
+        self.assertEqual(memo.google_event_link, "https://calendar.google.com/event?eid=123")
+        self.assertIsNotNone(memo.google_synced_at)
+        create_google_calendar_event.assert_called_once_with(memo, credential)
+
+    @patch("memos.views.create_google_calendar_event")
+    def test_google_calendar_sync_requires_google_connection(self, create_google_calendar_event):
+        reminder_at = timezone.now() + timezone.timedelta(hours=2)
+        memo = Memo.objects.create(user=self.user, content="病院", status="today", reminder_at=reminder_at)
+
+        response = self.client.post(reverse("memo_google_calendar_sync", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("google_calendar_settings"))
+        memo.refresh_from_db()
+        self.assertEqual(memo.google_event_id, "")
+        create_google_calendar_event.assert_not_called()
+
+    @patch("memos.views.create_google_calendar_event")
+    def test_google_calendar_sync_requires_reminder(self, create_google_calendar_event):
+        GoogleCalendarCredential.objects.create(user=self.user, credentials_json='{"token": "token"}')
+        memo = Memo.objects.create(user=self.user, content="調べもの", status="inbox")
+
+        response = self.client.post(reverse("memo_google_calendar_sync", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("memo_list"))
+        memo.refresh_from_db()
+        self.assertEqual(memo.google_event_id, "")
+        create_google_calendar_event.assert_not_called()
+
+    def test_memo_list_shows_google_sync_button_for_reminder_memo(self):
+        Memo.objects.create(
+            user=self.user,
+            content="病院",
+            status="today",
+            reminder_at=timezone.now() + timezone.timedelta(hours=2),
+        )
+        Memo.objects.create(user=self.user, content="調べもの", status="inbox")
+
+        response = self.client.get(reverse("memo_list"))
+
+        self.assertContains(response, "Googleへ追加")
+        self.assertContains(response, reverse("memo_google_calendar_sync", args=[Memo.objects.get(content="病院").pk]))
+
 
 class MemoModelTest(TestCase):
     def test_overdue_is_false_for_done_memo(self):
@@ -194,6 +300,22 @@ class MemoModelTest(TestCase):
         )
 
         self.assertFalse(memo.is_overdue)
+
+    def test_is_synced_to_google_reflects_event_id(self):
+        user = User.objects.create_user(username="default")
+        memo = Memo.objects.create(user=user, content="病院")
+
+        self.assertFalse(memo.is_synced_to_google)
+
+        memo.google_event_id = "google-event-123"
+
+        self.assertTrue(memo.is_synced_to_google)
+
+    def test_google_calendar_credential_string(self):
+        user = User.objects.create_user(username="taro")
+        credential = GoogleCalendarCredential.objects.create(user=user, credentials_json="{}")
+
+        self.assertEqual(str(credential), "Google Calendar: taro")
 
 
 class MemoFormTest(TestCase):

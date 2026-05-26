@@ -1,3 +1,6 @@
 Django==4.2.30
+google-api-python-client==2.169.0
+google-auth==2.40.2
+google-auth-oauthlib==1.2.2
 psycopg[binary]==3.2.13
 python-dotenv==1.2.1
