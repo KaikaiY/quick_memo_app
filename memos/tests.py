@@ -6,6 +6,8 @@ from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
 
 from .forms import MemoForm
 from .models import GoogleCalendarCredential, Memo
@@ -316,6 +318,171 @@ class MemoModelTest(TestCase):
         credential = GoogleCalendarCredential.objects.create(user=user, credentials_json="{}")
 
         self.assertEqual(str(credential), "Google Calendar: taro")
+
+
+class MemoApiTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.other_user = User.objects.create_user(username="hanako", password="password123")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_api_memo_list_requires_login(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(reverse("api_memo-list"))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_api_memo_list_only_returns_current_users_non_trash_memos(self):
+        Memo.objects.create(user=self.user, content="自分のメモ", status="today")
+        Memo.objects.create(user=self.user, content="捨てたメモ", status="trash")
+        Memo.objects.create(user=self.other_user, content="他人のメモ", status="today")
+
+        response = self.client.get(reverse("api_memo-list"))
+
+        self.assertEqual(response.status_code, 200)
+        contents = [memo["content"] for memo in response.data]
+        self.assertEqual(contents, ["自分のメモ"])
+
+    def test_api_memo_list_can_filter_by_status(self):
+        Memo.objects.create(user=self.user, content="未整理", status="inbox")
+        Memo.objects.create(user=self.user, content="今日", status="today")
+
+        response = self.client.get(reverse("api_memo-list"), {"status": "inbox"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([memo["content"] for memo in response.data], ["未整理"])
+
+    def test_api_create_memo_from_quick_text(self):
+        response = self.client.post(reverse("api_memo-list"), {"text": "!高 明日18時に病院"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        memo = Memo.objects.get()
+        self.assertEqual(memo.user, self.user)
+        self.assertEqual(memo.content, "病院")
+        self.assertEqual(memo.priority, "high")
+        self.assertEqual(memo.status, "today")
+        self.assertIsNotNone(memo.reminder_at)
+        self.assertEqual(response.data["content"], "病院")
+        self.assertEqual(response.data["priority_display"], "高")
+
+    def test_api_create_plain_memo(self):
+        response = self.client.post(reverse("api_memo-list"), {"text": "旅行のアイデア"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        memo = Memo.objects.get()
+        self.assertEqual(memo.content, "旅行のアイデア")
+        self.assertEqual(memo.status, "inbox")
+        self.assertIsNone(memo.reminder_at)
+
+    def test_api_patch_memo(self):
+        memo = Memo.objects.create(user=self.user, content="古い内容", status="inbox", priority="unset")
+
+        response = self.client.patch(
+            reverse("api_memo-detail", args=[memo.pk]),
+            {"content": "新しい内容", "status": "week", "priority": "middle"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        memo.refresh_from_db()
+        self.assertEqual(memo.content, "新しい内容")
+        self.assertEqual(memo.status, "week")
+        self.assertEqual(memo.priority, "middle")
+
+    def test_api_patch_does_not_allow_done_status(self):
+        memo = Memo.objects.create(user=self.user, content="完了したい", status="inbox")
+
+        response = self.client.patch(
+            reverse("api_memo-detail", args=[memo.pk]),
+            {"status": "done"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "inbox")
+
+    def test_api_done_marks_memo_completed(self):
+        memo = Memo.objects.create(user=self.user, content="メールする", status="today")
+
+        response = self.client.post(reverse("api_memo-done", args=[memo.pk]), format="json")
+
+        self.assertEqual(response.status_code, 200)
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "done")
+        self.assertIsNotNone(memo.completed_at)
+        self.assertTrue(response.data["is_done"])
+
+    def test_api_delete_moves_memo_to_trash(self):
+        memo = Memo.objects.create(user=self.user, content="消すメモ", status="inbox")
+
+        response = self.client.post(reverse("api_memo-delete", args=[memo.pk]), format="json")
+
+        self.assertEqual(response.status_code, 200)
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "trash")
+        list_response = self.client.get(reverse("api_memo-list"))
+        self.assertEqual(list_response.data, [])
+
+
+class AuthApiTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.client = APIClient()
+
+    def test_api_login_returns_token_and_user(self):
+        response = self.client.post(
+            reverse("api_login"),
+            {"username": "taro", "password": "password123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+        self.assertEqual(response.data["user"]["username"], "taro")
+        self.assertTrue(Token.objects.filter(user=self.user, key=response.data["token"]).exists())
+
+    def test_api_login_rejects_invalid_credentials(self):
+        response = self.client.post(
+            reverse("api_login"),
+            {"username": "taro", "password": "wrong-password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_api_me_returns_authenticated_user(self):
+        token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        response = self.client.get(reverse("api_me"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["username"], "taro")
+
+    def test_token_can_authenticate_memo_api(self):
+        token = Token.objects.create(user=self.user)
+        Memo.objects.create(user=self.user, content="自分のメモ", status="inbox")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        response = self.client.get(reverse("api_memo-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["content"], "自分のメモ")
+
+    def test_api_logout_deletes_token(self):
+        token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        response = self.client.post(reverse("api_logout"), format="json")
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
+
+        me_response = self.client.get(reverse("api_me"))
+        self.assertEqual(me_response.status_code, 401)
 
 
 class MemoFormTest(TestCase):
