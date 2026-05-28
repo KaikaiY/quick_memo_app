@@ -1,4 +1,5 @@
 Django==4.2.30
+djangorestframework==3.16.1
 google-api-python-client==2.169.0
 google-auth==2.40.2
 google-auth-oauthlib==1.2.2
