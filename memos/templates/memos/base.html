@@ -9,7 +9,7 @@
 </head>
 <body>
   <main class="app-shell">
-    <nav class="app-nav" aria-label="メイン">
+    <nav class="app-nav{% if user.is_authenticated %} app-nav--desktop-only{% endif %}" aria-label="メイン">
       {% if user.is_authenticated %}
         <span class="app-nav-user">{{ user.username }}</span>
         <a class="app-nav-link{% if request.resolver_match.url_name == 'memo_list' %} active{% endif %}" href="{% url 'memo_list' %}">メモ</a>
@@ -30,6 +30,22 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% if user.is_authenticated %}
+    <nav class="tabbar" aria-label="モバイルメニュー">
+      <a class="{% if request.resolver_match.url_name == 'memo_list' %}active{% endif %}" href="{% url 'memo_list' %}">
+        <span class="tabbar-icon" aria-hidden="true">📝</span>メモ
+      </a>
+      <a class="{% if request.resolver_match.url_name == 'nightly_review' %}active{% endif %}" href="{% url 'nightly_review' %}">
+        <span class="tabbar-icon" aria-hidden="true">🌙</span>整理
+      </a>
+      <a class="{% if request.resolver_match.url_name == 'google_calendar_settings' %}active{% endif %}" href="{% url 'google_calendar_settings' %}">
+        <span class="tabbar-icon" aria-hidden="true">📅</span>連携
+      </a>
+      <a class="{% if request.resolver_match.url_name == 'logout_confirm' %}active{% endif %}" href="{% url 'logout_confirm' %}">
+        <span class="tabbar-icon" aria-hidden="true">↩️</span>ログアウト
+      </a>
+    </nav>
+  {% endif %}
   <script src="{% static 'memos/menu.js' %}"></script>
 </body>
 </html>
