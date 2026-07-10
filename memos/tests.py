@@ -615,3 +615,74 @@ class QuickMemoParserTest(TestCase):
 
         self.assertEqual(parsed.content, "13/40 10:00 予定")
         self.assertIsNone(parsed.reminder_at)
+
+    def test_parse_tomorrow_afternoon_pm(self):
+        parsed = parse_quick_memo("明日午後6時に病院", self.base_datetime)
+
+        self.assertEqual(parsed.content, "病院")
+        self.assertEqual(parsed.reminder_at.day, 15)
+        self.assertEqual(parsed.reminder_at.hour, 18)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_tomorrow_morning_am(self):
+        parsed = parse_quick_memo("明日午前9時に病院", self.base_datetime)
+
+        self.assertEqual(parsed.content, "病院")
+        self.assertEqual(parsed.reminder_at.day, 15)
+        self.assertEqual(parsed.reminder_at.hour, 9)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_tomorrow_with_kanji_hour(self):
+        parsed = parse_quick_memo("明日六時に病院", self.base_datetime)
+
+        self.assertEqual(parsed.content, "病院")
+        self.assertEqual(parsed.reminder_at.day, 15)
+        self.assertEqual(parsed.reminder_at.hour, 6)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_kanji_month_and_kanji_day(self):
+        parsed = parse_quick_memo("五月二十日に歯医者", self.base_datetime)
+
+        self.assertEqual(parsed.content, "歯医者")
+        self.assertEqual(parsed.reminder_at.month, 5)
+        self.assertEqual(parsed.reminder_at.day, 20)
+        self.assertEqual(parsed.reminder_at.hour, 9)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_arabic_month_with_kanji_day(self):
+        parsed = parse_quick_memo("5月二十日に歯医者", self.base_datetime)
+
+        self.assertEqual(parsed.content, "歯医者")
+        self.assertEqual(parsed.reminder_at.month, 5)
+        self.assertEqual(parsed.reminder_at.day, 20)
+        self.assertEqual(parsed.reminder_at.hour, 9)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_strips_leading_comma_from_content(self):
+        parsed = parse_quick_memo("明日、病院", self.base_datetime)
+
+        self.assertEqual(parsed.content, "病院")
+        self.assertEqual(parsed.reminder_at.day, 15)
+        self.assertEqual(parsed.reminder_at.hour, 9)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_relative_day_with_full_width_space(self):
+        parsed = parse_quick_memo("明日　病院", self.base_datetime)
+
+        self.assertEqual(parsed.content, "病院")
+        self.assertEqual(parsed.reminder_at.day, 15)
+        self.assertEqual(parsed.reminder_at.hour, 9)
+        self.assertEqual(parsed.reminder_at.minute, 0)
+
+    def test_parse_afternoon_noon_and_morning_midnight(self):
+        noon = parse_quick_memo("明日午後12時に会議", self.base_datetime)
+        midnight = parse_quick_memo("明日午前12時に集合", self.base_datetime)
+
+        self.assertEqual(noon.reminder_at.hour, 12)
+        self.assertEqual(midnight.reminder_at.hour, 0)
+
+    def test_invalid_kanji_date_falls_back_to_plain_memo(self):
+        parsed = parse_quick_memo("十三月四十日に予定", self.base_datetime)
+
+        self.assertEqual(parsed.content, "十三月四十日に予定")
+        self.assertIsNone(parsed.reminder_at)
