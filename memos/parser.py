@@ -88,6 +88,16 @@ PATTERNS = (
     KANJI_DATE_ONLY_PATTERN,
 )
 
+# 「日時を指定しようとした」と判断できる強い手がかり。
+# 午前/午後、スラッシュ日付、数値(アラビア/漢数字)+時/分/月/日 を対象にする。
+# 単独の「時/月/日」(例: 日記)は誤検知を避けるため対象にしない。
+DATETIME_HINT_PATTERN = re.compile(rf"(午前|午後|\d{{1,2}}/\d{{1,2}}|{NUM}[時分月日])")
+
+
+def looks_like_datetime(text):
+    """日時を指定しようとした形跡があるかどうかを返す。"""
+    return bool(DATETIME_HINT_PATTERN.search(text or ""))
+
 
 def parse_quick_memo(text, base_datetime=None):
     raw_text = text.strip()

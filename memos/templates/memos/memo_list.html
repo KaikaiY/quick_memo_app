@@ -1,4 +1,5 @@
 {% extends "memos/base.html" %}
+{% load static %}
 
 {% block content %}
 <section class="quick-entry" aria-labelledby="quick-entry-title">
@@ -13,6 +14,12 @@
       {{ quick_form.text }}
       <button type="submit">追加</button>
     </div>
+    <div class="quick-preview" id="quick-preview" data-preview-url="{% url 'memo_preview' %}" aria-live="polite" hidden>
+      <span class="quick-preview-item" data-role="content"></span>
+      <span class="quick-preview-item" data-role="reminder"></span>
+      <span class="quick-preview-item" data-role="priority"></span>
+      <span class="quick-preview-warning" data-role="warning" hidden></span>
+    </div>
     {% if quick_form.text.errors %}
       <p class="field-error">{{ quick_form.text.errors|striptags }}</p>
     {% endif %}
@@ -25,61 +32,62 @@
       </div>
     </details>
   </form>
+  <script src="{% static 'memos/quick_preview.js' %}"></script>
 </section>
 
-<section class="memo-section" aria-labelledby="active-memos-title">
-  <div class="section-heading">
-    <h2 id="active-memos-title">未完了</h2>
-    <span>{{ active_memos|length }}件</span>
-  </div>
+{% if overdue_memos or today_memos or upcoming_memos or no_date_memos %}
+  {% if overdue_memos %}
+    <section class="memo-section" aria-labelledby="overdue-memos-title">
+      <div class="section-heading">
+        <h2 id="overdue-memos-title">期限切れ</h2>
+        <span>{{ overdue_memos|length }}件</span>
+      </div>
+      <div class="memo-list">
+        {% for memo in overdue_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
 
-  <div class="memo-list">
-    {% for memo in active_memos %}
-      <article class="memo-card{% if memo.is_overdue %} overdue{% endif %}">
-        <div class="memo-main">
-          <p>{{ memo.content }}</p>
-          <div class="memo-meta">
-            {% if memo.priority != "unset" %}
-              <span class="priority-badge priority-{{ memo.priority }}">{{ memo.get_priority_display }}</span>
-            {% endif %}
-            <span>{{ memo.get_status_display }}</span>
-            {% if memo.reminder_at %}
-              <time datetime="{{ memo.reminder_at|date:'c' }}">{{ memo.reminder_at|date:"m/d H:i" }}</time>
-            {% endif %}
-          </div>
-        </div>
-        <div class="memo-actions">
-          {% if memo.google_event_link %}
-            <a class="memo-action-link" href="{{ memo.google_event_link }}" target="_blank" rel="noopener">Google予定</a>
-          {% elif memo.reminder_at %}
-            <form method="post" action="{% url 'memo_google_calendar_sync' memo.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="secondary">Googleへ追加</button>
-            </form>
-          {% endif %}
-          <form method="post" action="{% url 'memo_done' memo.pk %}">
-            {% csrf_token %}
-            <button type="submit">完了</button>
-          </form>
-          <div class="memo-menu">
-            <button type="button" class="memo-menu-button" aria-expanded="false" aria-label="その他の操作">
-              ...
-            </button>
-            <div class="memo-menu-list" hidden>
-              <a href="{% url 'memo_edit' memo.pk %}">編集</a>
-              <form method="post" action="{% url 'memo_delete' memo.pk %}">
-                {% csrf_token %}
-                <button type="submit">削除</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </article>
-    {% empty %}
-      <p class="empty-state">まだメモはありません。</p>
-    {% endfor %}
-  </div>
-</section>
+  {% if today_memos %}
+    <section class="memo-section" aria-labelledby="today-memos-title">
+      <div class="section-heading">
+        <h2 id="today-memos-title">今日</h2>
+        <span>{{ today_memos|length }}件</span>
+      </div>
+      <div class="memo-list">
+        {% for memo in today_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if upcoming_memos %}
+    <section class="memo-section" aria-labelledby="upcoming-memos-title">
+      <div class="section-heading">
+        <h2 id="upcoming-memos-title">今後</h2>
+        <span>{{ upcoming_memos|length }}件</span>
+      </div>
+      <div class="memo-list">
+        {% for memo in upcoming_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if no_date_memos %}
+    <section class="memo-section" aria-labelledby="no-date-memos-title">
+      <div class="section-heading">
+        <h2 id="no-date-memos-title">日時なし</h2>
+        <span>{{ no_date_memos|length }}件</span>
+      </div>
+      <div class="memo-list">
+        {% for memo in no_date_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% else %}
+  <section class="memo-section">
+    <p class="empty-state">まだメモはありません。</p>
+  </section>
+{% endif %}
 
 {% if done_memos %}
   <section class="memo-section" aria-labelledby="done-memos-title">

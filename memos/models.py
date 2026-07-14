@@ -30,6 +30,8 @@ class Memo(models.Model):
         ("trash", "捨てる"),
     ]
 
+    PRIORITY_ORDER = {"high": 0, "middle": 1, "low": 2, "unset": 3}
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.CharField(max_length=255)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="other")
@@ -52,6 +54,10 @@ class Memo(models.Model):
     @property
     def is_done(self):
         return self.status == "done"
+
+    @property
+    def priority_rank(self):
+        return self.PRIORITY_ORDER.get(self.priority, 99)
 
     @property
     def is_overdue(self):

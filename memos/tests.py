@@ -11,7 +11,8 @@ from rest_framework.test import APIClient
 
 from .forms import MemoForm
 from .models import GoogleCalendarCredential, Memo
-from .parser import parse_quick_memo
+from .parser import looks_like_datetime, parse_quick_memo
+from .views import categorize_memos
 
 
 class MemoViewsTest(TestCase):
@@ -686,3 +687,154 @@ class QuickMemoParserTest(TestCase):
 
         self.assertEqual(parsed.content, "十三月四十日に予定")
         self.assertIsNone(parsed.reminder_at)
+
+
+class DatetimeHintTest(TestCase):
+    def test_detects_datetime_like_expressions(self):
+        for text in ["明日午後に病院", "5月に旅行", "6時に集合", "二十日に歯医者", "25時に会議", "5/20 予定"]:
+            self.assertTrue(looks_like_datetime(text), text)
+
+    def test_ignores_plain_text(self):
+        for text in ["日記を書く", "旅行のアイデア", "牛乳を買う", ""]:
+            self.assertFalse(looks_like_datetime(text), text)
+
+
+class CategorizeMemosTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.now = timezone.localtime(timezone.make_aware(datetime(2026, 5, 14, 10, 0)))
+
+    def _make(self, content, reminder_at=None, priority="unset"):
+        return Memo.objects.create(
+            user=self.user, content=content, reminder_at=reminder_at, priority=priority, status="today"
+        )
+
+    def test_splits_into_overdue_today_upcoming_and_no_date(self):
+        overdue = self._make("期限切れ", self.now - timezone.timedelta(hours=2))
+        today = self._make("今日", self.now + timezone.timedelta(hours=2))
+        today_late = self._make("今日夜", self.now.replace(hour=23, minute=0))
+        upcoming = self._make("今後", self.now + timezone.timedelta(days=1))
+        no_date = self._make("日時なし", None)
+
+        groups = categorize_memos(Memo.objects.filter(user=self.user), self.now)
+
+        self.assertEqual([m.content for m in groups["overdue"]], ["期限切れ"])
+        self.assertEqual({m.content for m in groups["today"]}, {"今日", "今日夜"})
+        self.assertEqual([m.content for m in groups["upcoming"]], ["今後"])
+        self.assertEqual([m.content for m in groups["no_date"]], ["日時なし"])
+
+    def test_today_and_upcoming_sorted_by_reminder_ascending(self):
+        self._make("後", self.now + timezone.timedelta(hours=5))
+        self._make("先", self.now + timezone.timedelta(hours=1))
+        self._make("中", self.now + timezone.timedelta(hours=3))
+
+        groups = categorize_memos(Memo.objects.filter(user=self.user), self.now)
+
+        self.assertEqual([m.content for m in groups["today"]], ["先", "中", "後"])
+
+    def test_same_datetime_orders_by_priority(self):
+        same = self.now + timezone.timedelta(hours=2)
+        self._make("低優先", same, priority="low")
+        self._make("高優先", same, priority="high")
+        self._make("中優先", same, priority="middle")
+
+        groups = categorize_memos(Memo.objects.filter(user=self.user), self.now)
+
+        self.assertEqual([m.content for m in groups["today"]], ["高優先", "中優先", "低優先"])
+
+    def test_no_date_orders_by_priority(self):
+        self._make("未設定メモ", None, priority="unset")
+        self._make("高メモ", None, priority="high")
+
+        groups = categorize_memos(Memo.objects.filter(user=self.user), self.now)
+
+        self.assertEqual([m.content for m in groups["no_date"]], ["高メモ", "未設定メモ"])
+
+
+class MemoListGroupingViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.client.force_login(self.user)
+
+    def test_list_groups_memos_and_separates_done(self):
+        now = timezone.now()
+        overdue = Memo.objects.create(
+            user=self.user, content="期限切れ", status="today", reminder_at=now - timezone.timedelta(hours=1)
+        )
+        upcoming = Memo.objects.create(
+            user=self.user, content="今後", status="week", reminder_at=now + timezone.timedelta(days=2)
+        )
+        no_date = Memo.objects.create(user=self.user, content="日時なし", status="inbox")
+        done = Memo.objects.create(
+            user=self.user, content="完了メモ", status="done", completed_at=now
+        )
+
+        response = self.client.get(reverse("memo_list"))
+
+        self.assertIn(overdue, list(response.context["overdue_memos"]))
+        self.assertIn(upcoming, list(response.context["upcoming_memos"]))
+        self.assertIn(no_date, list(response.context["no_date_memos"]))
+        self.assertIn(done, list(response.context["done_memos"]))
+
+        active_pks = set()
+        for key in ("overdue_memos", "today_memos", "upcoming_memos", "no_date_memos"):
+            active_pks.update(m.pk for m in response.context[key])
+        self.assertNotIn(done.pk, active_pks)
+
+    def test_done_memo_actions_still_available_for_active_memo(self):
+        Memo.objects.create(user=self.user, content="日時なしメモ", status="inbox")
+
+        response = self.client.get(reverse("memo_list"))
+
+        self.assertContains(response, "完了")
+        self.assertContains(response, "編集")
+        self.assertContains(response, "削除")
+
+
+class QuickPreviewViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.client.force_login(self.user)
+
+    def test_preview_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("memo_preview"), {"text": "明日18時に病院"})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
+    def test_preview_returns_parsed_fields(self):
+        response = self.client.get(reverse("memo_preview"), {"text": "!高 明日18時に病院"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["content"], "病院")
+        self.assertEqual(data["priority"], "high")
+        self.assertEqual(data["priority_display"], "高")
+        self.assertTrue(data["has_reminder"])
+        self.assertIn("18:00", data["reminder"])
+        self.assertFalse(data["warning"])
+
+    def test_preview_plain_memo_has_no_reminder_and_no_warning(self):
+        response = self.client.get(reverse("memo_preview"), {"text": "旅行のアイデア"})
+
+        data = response.json()
+        self.assertFalse(data["has_reminder"])
+        self.assertIsNone(data["reminder"])
+        self.assertEqual(data["priority_display"], "未設定")
+        self.assertFalse(data["warning"])
+
+    def test_preview_warns_when_datetime_like_but_unparsed(self):
+        response = self.client.get(reverse("memo_preview"), {"text": "25時に会議"})
+
+        data = response.json()
+        self.assertFalse(data["has_reminder"])
+        self.assertTrue(data["warning"])
+
+    def test_preview_empty_text_has_no_warning(self):
+        response = self.client.get(reverse("memo_preview"), {"text": ""})
+
+        data = response.json()
+        self.assertFalse(data["warning"])
+        self.assertFalse(data["has_reminder"])

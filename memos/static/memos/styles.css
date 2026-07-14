@@ -320,6 +320,39 @@ label span {
   font-size: 0.9rem;
 }
 
+.quick-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: -4px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.quick-preview[hidden] {
+  display: none;
+}
+
+.quick-preview-item {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.quick-preview-warning {
+  padding: 3px 10px;
+  border: 1px solid var(--overdue-border);
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--danger);
+}
+
+.quick-preview-warning[hidden] {
+  display: none;
+}
+
 .input-help {
   position: relative;
   width: fit-content;

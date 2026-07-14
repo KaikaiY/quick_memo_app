@@ -5,6 +5,7 @@ from . import views
 
 urlpatterns = [
     path("", views.memo_list, name="memo_list"),
+    path("memos/preview/", views.memo_preview, name="memo_preview"),
     path("signup/", views.signup, name="signup"),
     path("logout/", views.logout_confirm, name="logout_confirm"),
     path("google-calendar/", views.google_calendar_settings, name="google_calendar_settings"),

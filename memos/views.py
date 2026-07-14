@@ -5,6 +5,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -19,7 +20,7 @@ from .google_calendar import (
     is_google_oauth_configured,
 )
 from .models import GoogleCalendarCredential, Memo
-from .parser import parse_quick_memo
+from .parser import looks_like_datetime, parse_quick_memo
 
 
 def get_safe_next_url(request, method="POST"):
@@ -136,6 +137,57 @@ def memo_google_calendar_sync(request, pk):
     return redirect(next_url)
 
 
+def categorize_memos(memos, now):
+    """アクティブなメモを日時の状態ごとに分類し、各群を並べ替えて返す。"""
+    end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    overdue, today, upcoming, no_date = [], [], [], []
+
+    for memo in memos:
+        if memo.reminder_at is None:
+            no_date.append(memo)
+            continue
+        reminder = timezone.localtime(memo.reminder_at)
+        if reminder < now:
+            overdue.append(memo)
+        elif reminder <= end_of_today:
+            today.append(memo)
+        else:
+            upcoming.append(memo)
+
+    for group in (overdue, today, upcoming):
+        group.sort(key=lambda memo: (timezone.localtime(memo.reminder_at), memo.priority_rank))
+
+    # 日時なしは優先度順、同順位内は新しい順。
+    no_date.sort(key=lambda memo: memo.created_at, reverse=True)
+    no_date.sort(key=lambda memo: memo.priority_rank)
+
+    return {"overdue": overdue, "today": today, "upcoming": upcoming, "no_date": no_date}
+
+
+@login_required
+def memo_preview(request):
+    text = request.GET.get("text", "")
+    parsed = parse_quick_memo(text)
+
+    reminder = None
+    if parsed.reminder_at:
+        reminder = timezone.localtime(parsed.reminder_at).strftime("%m/%d %H:%M")
+
+    priority_labels = dict(Memo.PRIORITY_CHOICES)
+    warning = bool(text.strip()) and parsed.reminder_at is None and looks_like_datetime(text)
+
+    return JsonResponse(
+        {
+            "content": parsed.content,
+            "priority": parsed.priority,
+            "priority_display": priority_labels.get(parsed.priority, ""),
+            "reminder": reminder,
+            "has_reminder": parsed.reminder_at is not None,
+            "warning": warning,
+        }
+    )
+
+
 @login_required
 def memo_list(request):
     user = request.user
@@ -162,13 +214,16 @@ def memo_list(request):
 
     memos = Memo.objects.filter(user=user).exclude(status="trash")
     active_memos = memos.exclude(status="done")
-    done_memos = memos.filter(status="done")[:10]
+    groups = categorize_memos(active_memos, timezone.localtime())
+    done_memos = memos.filter(status="done").order_by("-completed_at")[:10]
 
     context = {
         "quick_form": quick_form,
-        "active_memos": active_memos,
+        "overdue_memos": groups["overdue"],
+        "today_memos": groups["today"],
+        "upcoming_memos": groups["upcoming"],
+        "no_date_memos": groups["no_date"],
         "done_memos": done_memos,
-        "status_choices": Memo.STATUS_CHOICES,
     }
     return render(request, "memos/memo_list.html", context)
 
