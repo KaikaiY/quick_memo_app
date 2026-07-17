@@ -42,6 +42,7 @@ class Memo(models.Model):
     google_event_id = models.CharField(max_length=255, blank=True)
     google_event_link = models.URLField(blank=True)
     google_synced_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,9 +65,9 @@ class Memo(models.Model):
         return self.reminder_at is not None and self.reminder_at < timezone.now() and not self.is_done
 
     def mark_done(self):
-        self.status = "done"
-        self.completed_at = timezone.now()
-        self.save(update_fields=["status", "completed_at", "updated_at"])
+        from . import services
+
+        services.complete_memo(self)
 
     @property
     def is_synced_to_google(self):

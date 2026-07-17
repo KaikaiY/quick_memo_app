@@ -292,6 +292,143 @@ class MemoViewsTest(TestCase):
         self.assertContains(response, reverse("memo_google_calendar_sync", args=[Memo.objects.get(content="病院").pk]))
 
 
+class MemoLifecycleTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="taro", password="password123")
+        self.client.force_login(self.user)
+
+    def test_done_keeps_memo_and_stores_completed_at(self):
+        memo = Memo.objects.create(user=self.user, content="支払い", status="today")
+
+        self.client.post(reverse("memo_done", args=[memo.pk]))
+
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "done")
+        self.assertIsNotNone(memo.completed_at)
+        self.assertTrue(Memo.objects.filter(pk=memo.pk).exists())
+
+    def test_done_shows_undo_banner_on_next_list_view(self):
+        memo = Memo.objects.create(user=self.user, content="牛乳を買う", status="today")
+
+        response = self.client.post(reverse("memo_done", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("memo_list"), fetch_redirect_response=False)
+        list_response = self.client.get(reverse("memo_list"))
+        self.assertContains(list_response, "元に戻す")
+        self.assertContains(list_response, reverse("memo_uncomplete", args=[memo.pk]))
+
+    def test_undo_banner_shown_only_once(self):
+        memo = Memo.objects.create(user=self.user, content="一度きり", status="today")
+        self.client.post(reverse("memo_done", args=[memo.pk]))
+
+        first = self.client.get(reverse("memo_list"))
+        second = self.client.get(reverse("memo_list"))
+
+        self.assertContains(first, "元に戻す")
+        self.assertNotContains(second, "元に戻す")
+
+    def test_uncomplete_returns_memo_to_active(self):
+        memo = Memo.objects.create(
+            user=self.user, content="病院", status="done", completed_at=timezone.now(),
+            reminder_at=timezone.now() + timezone.timedelta(hours=2),
+        )
+
+        response = self.client.post(reverse("memo_uncomplete", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("memo_list"))
+        memo.refresh_from_db()
+        self.assertNotEqual(memo.status, "done")
+        self.assertEqual(memo.status, "today")
+        self.assertIsNone(memo.completed_at)
+
+    def test_uncomplete_only_targets_done_memo(self):
+        memo = Memo.objects.create(user=self.user, content="未完了", status="today")
+
+        response = self.client.post(reverse("memo_uncomplete", args=[memo.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_is_logical_and_stores_deleted_at(self):
+        memo = Memo.objects.create(user=self.user, content="消すメモ", status="inbox")
+
+        self.client.post(reverse("memo_delete", args=[memo.pk]))
+
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "trash")
+        self.assertIsNotNone(memo.deleted_at)
+        self.assertTrue(Memo.objects.filter(pk=memo.pk).exists())
+
+    def test_deleted_memo_excluded_from_list_but_shown_in_trash(self):
+        memo = Memo.objects.create(user=self.user, content="消すメモ", status="inbox")
+        self.client.post(reverse("memo_delete", args=[memo.pk]))
+
+        list_response = self.client.get(reverse("memo_list"))
+        trash_response = self.client.get(reverse("trash_list"))
+
+        self.assertNotContains(list_response, "消すメモ")
+        self.assertContains(trash_response, "消すメモ")
+
+    def test_restore_returns_memo_from_trash_to_active(self):
+        memo = Memo.objects.create(
+            user=self.user, content="復元するメモ", status="trash", deleted_at=timezone.now()
+        )
+
+        response = self.client.post(reverse("memo_restore", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("trash_list"))
+        memo.refresh_from_db()
+        self.assertEqual(memo.status, "inbox")
+        self.assertIsNone(memo.deleted_at)
+
+    def test_restore_only_targets_trashed_memo(self):
+        memo = Memo.objects.create(user=self.user, content="通常メモ", status="today")
+
+        response = self.client.post(reverse("memo_restore", args=[memo.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_purge_confirm_page_is_shown_on_get(self):
+        memo = Memo.objects.create(
+            user=self.user, content="完全削除メモ", status="trash", deleted_at=timezone.now()
+        )
+
+        response = self.client.get(reverse("memo_purge", args=[memo.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "完全に削除しますか？")
+        self.assertTrue(Memo.objects.filter(pk=memo.pk).exists())
+
+    def test_purge_permanently_deletes_on_post(self):
+        memo = Memo.objects.create(
+            user=self.user, content="完全削除メモ", status="trash", deleted_at=timezone.now()
+        )
+
+        response = self.client.post(reverse("memo_purge", args=[memo.pk]))
+
+        self.assertRedirects(response, reverse("trash_list"))
+        self.assertFalse(Memo.objects.filter(pk=memo.pk).exists())
+
+    def test_purge_only_allowed_from_trash(self):
+        memo = Memo.objects.create(user=self.user, content="通常メモ", status="today")
+
+        get_response = self.client.get(reverse("memo_purge", args=[memo.pk]))
+        post_response = self.client.post(reverse("memo_purge", args=[memo.pk]))
+
+        self.assertEqual(get_response.status_code, 404)
+        self.assertEqual(post_response.status_code, 404)
+        self.assertTrue(Memo.objects.filter(pk=memo.pk).exists())
+
+    def test_trash_only_shows_current_users_memos(self):
+        other = User.objects.create_user(username="hanako", password="password123")
+        Memo.objects.create(user=self.user, content="自分のゴミ", status="trash", deleted_at=timezone.now())
+        Memo.objects.create(user=other, content="他人のゴミ", status="trash", deleted_at=timezone.now())
+
+        response = self.client.get(reverse("trash_list"))
+
+        self.assertContains(response, "自分のゴミ")
+        self.assertNotContains(response, "他人のゴミ")
+
+
 class MemoModelTest(TestCase):
     def test_overdue_is_false_for_done_memo(self):
         user = User.objects.create_user(username="default")

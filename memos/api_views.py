@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import services
 from .api_serializers import (
     LoginSerializer,
     MemoSerializer,
@@ -83,12 +84,11 @@ class MemoViewSet(
     @action(detail=True, methods=["post"])
     def done(self, request, pk=None):
         memo = self.get_object()
-        memo.mark_done()
+        services.complete_memo(memo)
         return Response(MemoSerializer(memo).data)
 
     @action(detail=True, methods=["post"])
     def delete(self, request, pk=None):
         memo = self.get_object()
-        memo.status = "trash"
-        memo.save(update_fields=["status", "updated_at"])
+        services.trash_memo(memo)
         return Response(MemoSerializer(memo).data)

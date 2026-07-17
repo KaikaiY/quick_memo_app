@@ -450,7 +450,6 @@ label span {
 }
 
 .memo-card.done {
-  grid-template-columns: 1fr;
   opacity: 0.74;
 }
 
@@ -584,6 +583,45 @@ label span {
   border-radius: 8px;
   color: var(--muted);
   text-align: center;
+}
+
+.undo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--connected-border);
+  border-radius: 8px;
+  background: var(--connected-bg);
+}
+
+.undo-banner form {
+  margin: 0;
+}
+
+.trash-link {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.trash-link a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.trash-link a:hover {
+  color: var(--accent);
+}
+
+.danger-link {
+  color: var(--danger);
+}
+
+.danger-link:hover {
+  border-color: var(--danger);
 }
 
 .full-field {

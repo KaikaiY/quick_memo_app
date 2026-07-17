@@ -1,0 +1,23 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="purge-title">
+  <div>
+    <p class="eyebrow">Delete</p>
+    <h1 id="purge-title">完全に削除しますか？</h1>
+  </div>
+
+  <div class="connection-status">
+    <p>「{{ memo.content }}」</p>
+    <p class="input-hint">完全に削除すると元に戻せません。</p>
+  </div>
+
+  <form method="post" action="{% url 'memo_purge' memo.pk %}" class="memo-form">
+    {% csrf_token %}
+    <div class="form-actions">
+      <a href="{% url 'trash_list' %}">戻る</a>
+      <button type="submit" class="quiet">完全に削除</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

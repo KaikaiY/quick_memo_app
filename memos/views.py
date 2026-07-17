@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from . import services
 from .forms import MemoForm, QuickMemoForm, ReparseMemoForm
 from .google_calendar import (
     GoogleCalendarSyncError,
@@ -217,6 +218,11 @@ def memo_list(request):
     groups = categorize_memos(active_memos, timezone.localtime())
     done_memos = memos.filter(status="done").order_by("-completed_at")[:10]
 
+    undo_memo = None
+    undo_pk = request.session.pop("undo_memo_pk", None)
+    if undo_pk:
+        undo_memo = Memo.objects.filter(user=user, pk=undo_pk, status="done").first()
+
     context = {
         "quick_form": quick_form,
         "overdue_memos": groups["overdue"],
@@ -224,6 +230,7 @@ def memo_list(request):
         "upcoming_memos": groups["upcoming"],
         "no_date_memos": groups["no_date"],
         "done_memos": done_memos,
+        "undo_memo": undo_memo,
     }
     return render(request, "memos/memo_list.html", context)
 
@@ -281,8 +288,22 @@ def memo_edit(request, pk):
 def memo_done(request, pk):
     user = request.user
     memo = get_object_or_404(Memo, pk=pk, user=user)
-    memo.mark_done()
+    services.complete_memo(memo)
     messages.success(request, "完了にしました。")
+    next_url = get_safe_next_url(request)
+    if next_url:
+        return redirect(next_url)
+    request.session["undo_memo_pk"] = memo.pk
+    return redirect("memo_list")
+
+
+@require_POST
+@login_required
+def memo_uncomplete(request, pk):
+    user = request.user
+    memo = get_object_or_404(Memo, pk=pk, user=user, status="done")
+    services.uncomplete_memo(memo)
+    messages.success(request, "未完了に戻しました。")
     return redirect(get_safe_next_url(request) or "memo_list")
 
 
@@ -291,7 +312,31 @@ def memo_done(request, pk):
 def memo_delete(request, pk):
     user = request.user
     memo = get_object_or_404(Memo, pk=pk, user=user)
-    memo.status = "trash"
-    memo.save(update_fields=["status", "updated_at"])
-    messages.success(request, "メモを削除しました。")
+    services.trash_memo(memo)
+    messages.success(request, "ゴミ箱に移動しました。")
     return redirect(get_safe_next_url(request) or "memo_list")
+
+
+@login_required
+def trash_list(request):
+    trashed_memos = Memo.objects.filter(user=request.user, status="trash").order_by("-deleted_at", "-updated_at")
+    return render(request, "memos/trash_list.html", {"trashed_memos": trashed_memos})
+
+
+@require_POST
+@login_required
+def memo_restore(request, pk):
+    memo = get_object_or_404(Memo, pk=pk, user=request.user, status="trash")
+    services.restore_memo(memo)
+    messages.success(request, "メモを復元しました。")
+    return redirect("trash_list")
+
+
+@login_required
+def memo_purge(request, pk):
+    memo = get_object_or_404(Memo, pk=pk, user=request.user, status="trash")
+    if request.method == "POST":
+        services.purge_memo(memo)
+        messages.success(request, "完全に削除しました。")
+        return redirect("trash_list")
+    return render(request, "memos/trash_purge_confirm.html", {"memo": memo})

@@ -13,8 +13,12 @@ urlpatterns = [
     path("google-calendar/callback/", views.google_calendar_callback, name="google_calendar_callback"),
     path("google-calendar/disconnect/", views.google_calendar_disconnect, name="google_calendar_disconnect"),
     path("review/", views.nightly_review, name="nightly_review"),
+    path("trash/", views.trash_list, name="trash_list"),
     path("memos/<int:pk>/edit/", views.memo_edit, name="memo_edit"),
     path("memos/<int:pk>/google-calendar/", views.memo_google_calendar_sync, name="memo_google_calendar_sync"),
     path("memos/<int:pk>/done/", views.memo_done, name="memo_done"),
+    path("memos/<int:pk>/uncomplete/", views.memo_uncomplete, name="memo_uncomplete"),
     path("memos/<int:pk>/delete/", views.memo_delete, name="memo_delete"),
+    path("memos/<int:pk>/restore/", views.memo_restore, name="memo_restore"),
+    path("memos/<int:pk>/purge/", views.memo_purge, name="memo_purge"),
 ]

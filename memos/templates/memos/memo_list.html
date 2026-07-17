@@ -2,6 +2,15 @@
 {% load static %}
 
 {% block content %}
+{% if undo_memo %}
+  <div class="undo-banner">
+    <span>「{{ undo_memo.content }}」を完了しました。</span>
+    <form method="post" action="{% url 'memo_uncomplete' undo_memo.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary">元に戻す</button>
+    </form>
+  </div>
+{% endif %}
 <section class="quick-entry" aria-labelledby="quick-entry-title">
   <div>
     <p class="eyebrow">Quick Memo</p>
@@ -97,15 +106,25 @@
     <div class="memo-list done-list">
       {% for memo in done_memos %}
         <article class="memo-card done">
-          <p>{{ memo.content }}</p>
-          <div class="memo-meta">
-            {% if memo.completed_at %}
-              <time datetime="{{ memo.completed_at|date:'c' }}">{{ memo.completed_at|date:"m/d H:i" }}</time>
-            {% endif %}
+          <div class="memo-main">
+            <p>{{ memo.content }}</p>
+            <div class="memo-meta">
+              {% if memo.completed_at %}
+                <time datetime="{{ memo.completed_at|date:'c' }}">{{ memo.completed_at|date:"m/d H:i" }}</time>
+              {% endif %}
+            </div>
+          </div>
+          <div class="memo-actions">
+            <form method="post" action="{% url 'memo_uncomplete' memo.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="secondary">未完了に戻す</button>
+            </form>
           </div>
         </article>
       {% endfor %}
     </div>
   </section>
 {% endif %}
+
+<p class="trash-link"><a href="{% url 'trash_list' %}">🗑 ゴミ箱</a></p>
 {% endblock %}

@@ -1,0 +1,42 @@
+{% extends "memos/base.html" %}
+
+{% block content %}
+<section class="quick-entry compact" aria-labelledby="trash-title">
+  <div>
+    <p class="eyebrow">Trash</p>
+    <h1 id="trash-title">ゴミ箱</h1>
+  </div>
+  <p class="input-hint">削除したメモはここから復元できます。完全に削除すると元に戻せません。</p>
+</section>
+
+<section class="memo-section" aria-labelledby="trash-memos-title">
+  <div class="section-heading">
+    <h2 id="trash-memos-title">削除済み</h2>
+    <span>{{ trashed_memos|length }}件</span>
+  </div>
+
+  <div class="memo-list">
+    {% for memo in trashed_memos %}
+      <article class="memo-card">
+        <div class="memo-main">
+          <p>{{ memo.content }}</p>
+          <div class="memo-meta">
+            {% if memo.deleted_at %}
+              <time datetime="{{ memo.deleted_at|date:'c' }}">削除 {{ memo.deleted_at|date:"m/d H:i" }}</time>
+            {% endif %}
+          </div>
+        </div>
+        <div class="memo-actions">
+          <form method="post" action="{% url 'memo_restore' memo.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="secondary">復元</button>
+          </form>
+          <a class="memo-action-link danger-link" href="{% url 'memo_purge' memo.pk %}">完全に削除</a>
+        </div>
+      </article>
+    {% empty %}
+      <p class="empty-state">ゴミ箱は空です。</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
