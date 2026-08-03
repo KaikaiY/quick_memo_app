@@ -757,3 +757,37 @@ label span {
   font-size: 1.25rem;
   line-height: 1;
 }
+
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.status-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.status-tab:hover {
+  background: var(--surface-hover);
+}
+
+.status-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.memo-meta .status-badge {
+  border-color: transparent;
+  background: var(--connected-bg);
+  color: var(--accent-dark);
+}

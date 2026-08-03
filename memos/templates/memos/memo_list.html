@@ -43,55 +43,23 @@
   </form>
   <script src="{% static 'memos/quick_preview.js' %}"></script>
 </section>
-
-{% if overdue_memos or today_memos or upcoming_memos or no_date_memos %}
-  {% if overdue_memos %}
-    <section class="memo-section" aria-labelledby="overdue-memos-title">
-      <div class="section-heading">
-        <h2 id="overdue-memos-title">期限切れ</h2>
-        <span>{{ overdue_memos|length }}件</span>
-      </div>
-      <div class="memo-list">
-        {% for memo in overdue_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
-  {% if today_memos %}
-    <section class="memo-section" aria-labelledby="today-memos-title">
-      <div class="section-heading">
-        <h2 id="today-memos-title">今日</h2>
-        <span>{{ today_memos|length }}件</span>
-      </div>
-      <div class="memo-list">
-        {% for memo in today_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
-  {% if upcoming_memos %}
-    <section class="memo-section" aria-labelledby="upcoming-memos-title">
-      <div class="section-heading">
-        <h2 id="upcoming-memos-title">今後</h2>
-        <span>{{ upcoming_memos|length }}件</span>
-      </div>
-      <div class="memo-list">
-        {% for memo in upcoming_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
-  {% if no_date_memos %}
-    <section class="memo-section" aria-labelledby="no-date-memos-title">
-      <div class="section-heading">
-        <h2 id="no-date-memos-title">日時なし</h2>
-        <span>{{ no_date_memos|length }}件</span>
-      </div>
-      <div class="memo-list">
-        {% for memo in no_date_memos %}{% include "memos/_memo_card.html" %}{% endfor %}
-      </div>
-    </section>
-  {% endif %}
+<nav class="status-tabs" aria-label="状態で絞り込み">
+  <a href="{% url 'memo_list'%}" class="status-tab{% if not current_status %} active{% endif %}">すべて</a>
+  <a href="?status=inbox" class="status-tab{% if current_status == 'inbox' %} active{% endif %}">未整理</a>
+  <a href="?status=today" class="status-tab{% if current_status == 'today' %} active{% endif %}">今日やる</a>
+  <a href="?status=week" class="status-tab{% if current_status == 'week' %} active{% endif %}">今週やる</a>
+  <a href="?status=someday" class="status-tab{% if current_status == 'someday' %} active{% endif %}">いつか</a>
+</nav>
+{% if memos %}
+  <section class="memo-section" aria-labelledby="memo-list-title">
+    <div class="section-heading">
+      <h2 id="memo-list-title">タスク</h2>
+      <span>{{ memos|length }}件</span>
+    </div>
+    <div class="memo-list">
+      {% for memo in memos %}{% include "memos/_memo_card.html" %}{% endfor %}
+    </div>
+  </section>
 {% else %}
   <section class="memo-section">
     <p class="empty-state">まだメモはありません。</p>

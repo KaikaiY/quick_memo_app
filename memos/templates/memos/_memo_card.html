@@ -5,6 +5,7 @@
       {% if memo.priority != "unset" %}
         <span class="priority-badge priority-{{ memo.priority }}">{{ memo.get_priority_display }}</span>
       {% endif %}
+      <span class="status-badge status-{{ memo.status }}">{{ memo.get_status_display }}</span>
       {% if memo.reminder_at %}
         <time datetime="{{ memo.reminder_at|date:'c' }}">{{ memo.reminder_at|date:"m/d H:i" }}</time>
       {% endif %}

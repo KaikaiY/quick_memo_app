@@ -215,7 +215,14 @@ def memo_list(request):
 
     memos = Memo.objects.filter(user=user).exclude(status="trash")
     active_memos = memos.exclude(status="done")
-    groups = categorize_memos(active_memos, timezone.localtime())
+    current_status = request.GET.get("status","")
+    valid_statuses = dict(Memo.STATUS_CHOICES)
+    if current_status in valid_statuses:
+        active_memos = active_memos.filter(status=current_status)
+    sorted_memos = sorted(
+        active_memos,
+        key=lambda memo: (memo.priority_rank, memo.reminder_at is None, memo.reminder_at or timezone.localtime()),
+    )
     done_memos = memos.filter(status="done").order_by("-completed_at")[:10]
 
     undo_memo = None
@@ -225,12 +232,10 @@ def memo_list(request):
 
     context = {
         "quick_form": quick_form,
-        "overdue_memos": groups["overdue"],
-        "today_memos": groups["today"],
-        "upcoming_memos": groups["upcoming"],
-        "no_date_memos": groups["no_date"],
+        "memos": sorted_memos,
         "done_memos": done_memos,
         "undo_memo": undo_memo,
+        "current_status":current_status,
     }
     return render(request, "memos/memo_list.html", context)
 
